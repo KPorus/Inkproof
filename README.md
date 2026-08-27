@@ -78,13 +78,11 @@ Open `http://localhost:5173`, pick a product, complete Stripe **test** checkout,
 
 Push to `main` runs `.github/workflows/deploy-client.yml`.  
 Set repo **Settings → Pages → Source** to **GitHub Actions**.  
-Set Actions variable `VITE_API_URL` to your live Render API URL.
+The client build sets `VITE_API_URL=https://inkproof.onrender.com`.
 
 ## Render keep-awake (cron)
 
-[`.github/workflows/keep-render-awake.yml`](.github/workflows/keep-render-awake.yml) probes `/api/health` every 10 minutes and only does a long wake request if the service looks asleep.
-
-Set variable `RENDER_BACKEND_URL` to your Render URL.
+[`.github/workflows/keep-render-awake.yml`](.github/workflows/keep-render-awake.yml) probes `https://inkproof.onrender.com/api/health` every 10 minutes and only does a long wake request if the service looks asleep.
 
 ## License
 

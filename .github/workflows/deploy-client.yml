@@ -45,6 +45,7 @@ jobs:
       - name: Build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_API_URL: https://inkproof.onrender.com
         run: pnpm build
 
       - name: Setup Pages

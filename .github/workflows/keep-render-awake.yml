@@ -10,26 +10,18 @@ on:
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
+env:
+  RENDER_BACKEND_URL: https://inkproof.onrender.com
+
 jobs:
   wake:
     runs-on: ubuntu-latest
     steps:
-      - name: Require backend URL
-        env:
-          RENDER_BACKEND_URL: ${{ vars.RENDER_BACKEND_URL }}
-        run: |
-          if [ -z "$RENDER_BACKEND_URL" ]; then
-            echo "Set repo variable RENDER_BACKEND_URL (e.g. https://inkproof-api.onrender.com)"
-            exit 1
-          fi
-          echo "Target: $RENDER_BACKEND_URL"
-
       - name: Probe, wake only if asleep
-        env:
-          RENDER_BACKEND_URL: ${{ vars.RENDER_BACKEND_URL }}
         run: |
           set +e
           HEALTH_URL="${RENDER_BACKEND_URL%/}/api/health"
+          echo "Target: $HEALTH_URL"
 
           echo "Probing (5s timeout)…"
           HTTP=$(curl -sS -o /tmp/health.json -w "%{http_code}" \
