@@ -31,7 +31,7 @@ export type Order = {
   updated_at: string;
 };
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:4000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {

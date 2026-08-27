@@ -1,10 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Set to your GitHub Pages repo name, e.g. "/assign/"
+// Local default is "/". GitHub Actions sets VITE_BASE to "/<repo>/" for Pages.
 export default defineConfig({
   plugins: [react()],
-  base: process.env.VITE_BASE ?? "/assign/",
+  base: process.env.VITE_BASE ?? "/",
   server: {
     port: 5173,
   },
