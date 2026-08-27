@@ -42,18 +42,9 @@ export default function App() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loadingBuy, setLoadingBuy] = useState(false);
   const [activityBusy, setActivityBusy] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const checkout = params.get("checkout");
-    if (checkout === "success") {
-      setBanner("Payment returned from Stripe. Watching webhook → event → PDF…");
-    } else if (checkout === "cancel") {
-      setBanner("Checkout canceled. Pick a product to try again.");
-    }
-  }, []);
 
   useEffect(() => {
     void fetchProducts()
@@ -107,6 +98,7 @@ export default function App() {
 
   async function handleBuy(product: Product, email: string) {
     setError(null);
+    setCheckoutUrl(null);
     setLoadingBuy(true);
     try {
       const result = await createCheckout(product.id, email || undefined);
@@ -116,14 +108,14 @@ export default function App() {
         throw new Error("Stripe did not return a checkout URL");
       }
 
-      // Keep this tab open so the live timeline/SSE stay visible.
-      const checkoutTab = window.open(result.url, "_blank", "noopener,noreferrer");
+      // Do not use "noopener" in features — it makes window.open() return null in many browsers.
+      const checkoutTab = window.open(result.url, "_blank");
       if (!checkoutTab) {
-        setBanner("Popup blocked — allow popups, or use the Stripe link below.");
-        setError(`Open checkout: ${result.url}`);
+        setCheckoutUrl(result.url);
+        setBanner("Popup blocked. Click “Open Stripe Checkout” below, and keep this tab open.");
       } else {
         setBanner(
-          "Stripe Checkout opened in a new tab. Keep this page open to watch webhook → event → PDF."
+          "Stripe Checkout opened in a new tab. Keep this page open to watch webhook → event → PDF. The checkout tab will close itself when done."
         );
       }
     } catch (err) {
@@ -182,6 +174,13 @@ export default function App() {
 
       {banner ? <div className="banner">{banner}</div> : null}
       {error ? <div className="banner error">{error}</div> : null}
+      {checkoutUrl ? (
+        <div className="banner">
+          <a className="btn primary" href={checkoutUrl} target="_blank" rel="noreferrer">
+            Open Stripe Checkout
+          </a>
+        </div>
+      ) : null}
 
       <section className="section" id="architecture" aria-labelledby="arch-title">
         <div className="section-head">

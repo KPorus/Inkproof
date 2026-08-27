@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inkproof — Closing</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: #edf5f2;
+        color: #0b3d3a;
+      }
+      p {
+        margin: 0.35rem 0;
+        text-align: center;
+      }
+      .muted {
+        color: #5b6b66;
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <p id="msg">Payment step finished. Closing this tab…</p>
+      <p class="muted" id="hint" hidden>You can close this tab and return to Inkproof.</p>
+    </div>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var status = params.get("status");
+        var msg = document.getElementById("msg");
+        if (status === "cancel") {
+          msg.textContent = "Checkout canceled. Closing this tab…";
+        } else {
+          msg.textContent = "Payment complete. Closing this tab…";
+        }
+
+        window.close();
+
+        // If the browser blocks close (tab not script-opened), show a hint.
+        setTimeout(function () {
+          if (!window.closed) {
+            document.getElementById("hint").hidden = false;
+            msg.textContent =
+              status === "cancel"
+                ? "Checkout canceled."
+                : "Payment complete.";
+          }
+        }, 300);
+      })();
+    </script>
+  </body>
+</html>
