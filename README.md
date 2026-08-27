@@ -54,10 +54,11 @@ Copy the printed `whsec_…` into `backend/.env` as `STRIPE_WEBHOOK_SECRET`.
 
 ```bash
 cd client
-cp .env.example .env
 pnpm install
 pnpm dev
 ```
+
+The client calls `http://localhost:5000` directly (hardcoded in `client/src/api.ts`).
 
 Open `http://localhost:5173`, pick a product, complete Stripe **test** checkout, and watch the architecture + activity timeline update as the PDF is forged.
 
@@ -72,8 +73,7 @@ Open `http://localhost:5173`, pick a product, complete Stripe **test** checkout,
 ## GitHub Pages
 
 Push to `main` runs `.github/workflows/deploy-client.yml`.  
-Set repo **Settings → Pages → Source** to **GitHub Actions**.  
-For a live API from Pages, set `VITE_API_URL` in the workflow or client env to your hosted backend URL.
+Set repo **Settings → Pages → Source** to **GitHub Actions**.
 
 ## License
 
