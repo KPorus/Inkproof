@@ -4,6 +4,7 @@ import { config } from "../config";
 import { bus } from "../events/bus";
 import { recordActivity } from "../services/activity";
 import { store } from "../store/memory";
+import type { Order } from "../types";
 import { log } from "../utils/logger";
 
 export const webhookRouter = Router();
@@ -13,6 +14,36 @@ function getStripe(): Stripe {
     throw new Error("STRIPE_SECRET_KEY is not configured");
   }
   return new Stripe(config.stripeSecretKey);
+}
+
+function resolveOrderFromSession(session: Stripe.Checkout.Session): Order | null {
+  const orderId = session.metadata?.orderId;
+  if (!orderId) return null;
+
+  const existing = store.getOrder(orderId);
+  if (existing) return existing;
+
+  // Memory can be wiped on Render sleep/restart — rebuild from Stripe metadata.
+  const productId =
+    session.metadata?.productId ?? store.listProducts()[0]?.id ?? "unknown-product";
+  const amountCents = session.amount_total ?? 0;
+  const currency = session.currency ?? "usd";
+
+  log("webhook", "Order missing in memory — recreating from Stripe session", {
+    orderId,
+    productId,
+    amountCents,
+  });
+
+  return store.createOrder({
+    id: orderId,
+    productId,
+    customerEmail: session.customer_details?.email ?? session.customer_email ?? null,
+    amountCents,
+    currency,
+    status: "pending",
+    stripeSessionId: session.id,
+  });
 }
 
 /**
@@ -70,9 +101,16 @@ webhookRouter.post("/", raw({ type: "application/json" }), async (req, res) => {
     });
 
     if (orderId) {
-      const order = store.getOrder(orderId);
+      const order = resolveOrderFromSession(session);
 
-      if (order && order.status === "pending") {
+      if (!order) {
+        log("webhook", "Skipping: could not resolve order", { orderId });
+      } else if (order.status !== "pending") {
+        log("webhook", "Skipping emit: order already processed", {
+          orderId,
+          status: order.status,
+        });
+      } else {
         store.updateOrder(orderId, {
           status: "paid",
           customer_email:
@@ -93,8 +131,8 @@ webhookRouter.post("/", raw({ type: "application/json" }), async (req, res) => {
           orderId,
           productName,
           customerEmail: session.customer_details?.email ?? session.customer_email,
-          amountCents: order.amount_cents,
-          currency: order.currency,
+          amountCents: order.amount_cents || session.amount_total || 0,
+          currency: order.currency || session.currency || "usd",
           stripeSessionId: session.id,
         };
 
@@ -112,11 +150,6 @@ webhookRouter.post("/", raw({ type: "application/json" }), async (req, res) => {
         );
 
         log("webhook", "Responding 200 to Stripe (PDF runs in background)", { orderId });
-      } else {
-        log("webhook", "Skipping emit: order missing or already processed", {
-          orderId,
-          status: order?.status,
-        });
       }
     } else {
       log("webhook", "Skipping: checkout session has no orderId metadata");

@@ -115,9 +115,20 @@ export default function App() {
       if (!result.url) {
         throw new Error("Stripe did not return a checkout URL");
       }
-      window.location.href = result.url;
+
+      // Keep this tab open so the live timeline/SSE stay visible.
+      const checkoutTab = window.open(result.url, "_blank", "noopener,noreferrer");
+      if (!checkoutTab) {
+        setBanner("Popup blocked — allow popups, or use the Stripe link below.");
+        setError(`Open checkout: ${result.url}`);
+      } else {
+        setBanner(
+          "Stripe Checkout opened in a new tab. Keep this page open to watch webhook → event → PDF."
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");
+    } finally {
       setLoadingBuy(false);
     }
   }

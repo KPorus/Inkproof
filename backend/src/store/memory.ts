@@ -52,20 +52,23 @@ class MemoryStore {
   }
 
   createOrder(input: {
+    id?: string;
     productId: string;
     customerEmail: string | null;
     amountCents: number;
     currency: string;
+    status?: Order["status"];
+    stripeSessionId?: string | null;
   }): Order {
     const now = new Date();
     const order: Order = {
-      id: randomUUID(),
+      id: input.id ?? randomUUID(),
       product_id: input.productId,
-      stripe_session_id: null,
+      stripe_session_id: input.stripeSessionId ?? null,
       customer_email: input.customerEmail,
       amount_cents: input.amountCents,
       currency: input.currency,
-      status: "pending",
+      status: input.status ?? "pending",
       receipt_path: null,
       created_at: now,
       updated_at: now,
