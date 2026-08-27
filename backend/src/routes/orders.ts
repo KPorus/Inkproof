@@ -1,7 +1,11 @@
 import fs from "fs";
 import path from "path";
 import { Router } from "express";
+import { bus } from "../events/bus";
+import { recordActivity } from "../services/activity";
 import { store } from "../store/memory";
+import { buildRetryPayload } from "../workers/pdfWorker";
+import { log } from "../utils/logger";
 
 export const ordersRouter = Router();
 
@@ -25,18 +29,6 @@ ordersRouter.get("/", (_req, res) => {
  *   get:
  *     summary: Get order by id
  *     tags: [Orders]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Order detail
- *       404:
- *         description: Not found
  */
 ordersRouter.get("/:id", (req, res) => {
   const order = store.getOrder(req.params.id);
@@ -58,20 +50,8 @@ ordersRouter.get("/:id", (req, res) => {
  * @openapi
  * /api/orders/{id}/receipt:
  *   get:
- *     summary: Download proof-of-purchase PDF
+ *     summary: Download or inline-view proof-of-purchase PDF
  *     tags: [Orders]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: PDF file
- *       404:
- *         description: Receipt not ready
  */
 ordersRouter.get("/:id/receipt", (req, res) => {
   const order = store.getOrder(req.params.id);
@@ -89,10 +69,42 @@ ordersRouter.get("/:id/receipt", (req, res) => {
     return;
   }
 
+  const inline = req.query.inline === "1" || req.query.inline === "true";
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename="inkproof-receipt-${req.params.id}.pdf"`
+    `${inline ? "inline" : "attachment"}; filename="inkproof-receipt-${req.params.id}.pdf"`
   );
   fs.createReadStream(absolute).pipe(res);
+});
+
+/**
+ * @openapi
+ * /api/orders/{id}/retry-pdf:
+ *   post:
+ *     summary: Re-emit purchase.paid to retry PDF generation
+ *     tags: [Orders]
+ */
+ordersRouter.post("/:id/retry-pdf", async (req, res, next) => {
+  try {
+    const orderId = req.params.id;
+    const payload = buildRetryPayload(orderId);
+    if (!payload) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+
+    store.updateOrder(orderId, { status: "paid", receipt_path: null });
+    await recordActivity(
+      "event_emitted",
+      "Retry: re-emitted purchase.paid for PDF job",
+      orderId,
+      { event: "purchase.paid", retry: true }
+    );
+    log("demo", "Retry PDF requested", { orderId });
+    bus.emit("purchase.paid", payload);
+    res.json({ ok: true, orderId });
+  } catch (error) {
+    next(error);
+  }
 });

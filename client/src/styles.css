@@ -162,7 +162,9 @@ body {
 
 .timeline-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .timeline-meta-right {
@@ -270,6 +272,11 @@ body {
 .arch-node.is-active {
   background: var(--yellow);
   transform: scale(1.03);
+}
+
+.arch-node.is-error {
+  background: #fde8e4;
+  border-color: var(--danger);
 }
 
 .arch-node strong {
@@ -592,4 +599,173 @@ body {
   .hero {
     padding-top: 2rem;
   }
+}
+
+.timeline-item.is-replay {
+  outline: 3px solid var(--yellow);
+  background: rgba(255, 224, 102, 0.25);
+  border-radius: 12px;
+  padding: 0.35rem;
+}
+
+.timeline-tip {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  border-left: 3px solid var(--yellow);
+  padding-left: 0.65rem;
+}
+
+.section-head.compact h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+}
+
+.section-head.compact p {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.log-panel {
+  border: var(--stroke-width) solid var(--stroke);
+  border-radius: var(--radius-wobble);
+  background: #1a1a1a;
+  color: #e8e8e8;
+  padding: 1rem;
+}
+
+.log-panel .section-head.compact h3,
+.log-panel .section-head.compact p,
+.log-panel .muted {
+  color: #cfcfcf;
+}
+
+.log-pre {
+  margin: 0;
+  max-height: 22rem;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-scope {
+  color: #ffe066;
+}
+
+.log-time {
+  color: #9a9a9a;
+}
+
+.demo-controls {
+  margin-top: 1rem;
+}
+
+.toggle {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.toggle input {
+  margin-top: 0.35rem;
+}
+
+.toggle span {
+  display: grid;
+  gap: 0.2rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+}
+
+.toggle small {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.orders-wrap {
+  display: grid;
+  gap: 1rem;
+}
+
+.order-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.order-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
+  border: var(--stroke-width) solid var(--stroke);
+  background: #fff;
+  padding: 0.75rem 0.9rem;
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-wobble);
+}
+
+.order-row.is-selected {
+  background: var(--yellow);
+}
+
+.order-row-right {
+  display: grid;
+  justify-items: end;
+  gap: 0.25rem;
+}
+
+.mono.small {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.receipt-preview,
+.receipt-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pdf-frame {
+  width: 100%;
+  min-height: 22rem;
+  border: var(--stroke-width) solid var(--stroke);
+  background: #fff;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.btn.small {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.95rem;
 }

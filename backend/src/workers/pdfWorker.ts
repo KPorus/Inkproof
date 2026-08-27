@@ -79,11 +79,12 @@ async function generateReceiptPdf(payload: PurchasePaidPayload, jobId: string): 
   return filePath;
 }
 
-async function handlePurchasePaid(payload: PurchasePaidPayload): Promise<void> {
+export async function handlePurchasePaid(payload: PurchasePaidPayload): Promise<void> {
   log("pdf-worker", "Background handler started for purchase.paid", {
     orderId: payload.orderId,
     productName: payload.productName,
     amountCents: payload.amountCents,
+    simulateFailure: store.simulatePdfFailure,
   });
 
   const job = store.createJob(payload.orderId);
@@ -106,6 +107,10 @@ async function handlePurchasePaid(payload: PurchasePaidPayload): Promise<void> {
   );
 
   try {
+    if (store.simulatePdfFailure) {
+      throw new Error("Simulated PDF failure (demo toggle is ON)");
+    }
+
     const receiptPath = await generateReceiptPdf(payload, job.id);
     const relativePath = path.relative(process.cwd(), receiptPath);
 
@@ -150,4 +155,18 @@ export function registerPdfWorker(): void {
     log("pdf-worker", "EventEmitter delivered purchase.paid", { orderId: payload.orderId });
     void handlePurchasePaid(payload);
   });
+}
+
+export function buildRetryPayload(orderId: string): PurchasePaidPayload | null {
+  const order = store.getOrder(orderId);
+  if (!order) return null;
+  const product = store.getProduct(order.product_id);
+  return {
+    orderId: order.id,
+    productName: product?.name ?? "Inkproof product",
+    customerEmail: order.customer_email,
+    amountCents: order.amount_cents,
+    currency: order.currency,
+    stripeSessionId: order.stripe_session_id ?? `retry-${order.id}`,
+  };
 }

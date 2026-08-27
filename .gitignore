@@ -18,6 +18,9 @@ client/dist/
 backend/uploads/receipts/*.pdf
 backend/uploads/receipts/*.PDF
 
+# Persisted demo state (keep directory; ignore contents except gitkeep if any)
+backend/data/store.json
+
 # OS / IDE
 .DS_Store
 Thumbs.db

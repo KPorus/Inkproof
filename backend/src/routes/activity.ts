@@ -6,6 +6,8 @@ import {
   subscribeActivity,
   subscribeActivityCleared,
 } from "../services/activity";
+import { store } from "../store/memory";
+import { listRecentLogs, subscribeLogs } from "../utils/logger";
 
 export const activityRouter = Router();
 
@@ -15,31 +17,21 @@ export const activityRouter = Router();
  *   get:
  *     summary: List recent backend activity events
  *     tags: [Activity]
- *     parameters:
- *       - in: query
- *         name: afterId
- *         schema:
- *           type: integer
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Activity feed
  *   delete:
  *     summary: Clear all activity events
  *     tags: [Activity]
- *     responses:
- *       200:
- *         description: Cleared count
  */
 activityRouter.get("/", async (req, res, next) => {
   try {
     const afterId = req.query.afterId ? Number(req.query.afterId) : undefined;
-    const limit = req.query.limit ? Number(req.query.limit) : 50;
+    const limit = req.query.limit ? Number(req.query.limit) : 80;
+    const orderId = typeof req.query.orderId === "string" ? req.query.orderId : undefined;
+    if (orderId) {
+      res.json({ events: store.listActivityForOrder(orderId) });
+      return;
+    }
     const events = await listActivity(
-      Number.isFinite(limit) ? Math.min(limit, 100) : 50,
+      Number.isFinite(limit) ? Math.min(limit, 200) : 80,
       Number.isFinite(afterId) ? afterId : undefined
     );
     res.json({ events });
@@ -55,13 +47,21 @@ activityRouter.delete("/", (_req, res) => {
 
 /**
  * @openapi
+ * /api/activity/logs:
+ *   get:
+ *     summary: Recent server log lines
+ *     tags: [Activity]
+ */
+activityRouter.get("/logs", (_req, res) => {
+  res.json({ logs: listRecentLogs(100) });
+});
+
+/**
+ * @openapi
  * /api/activity/stream:
  *   get:
- *     summary: Server-Sent Events stream of activity
+ *     summary: SSE stream of activity + server logs
  *     tags: [Activity]
- *     responses:
- *       200:
- *         description: text/event-stream
  */
 activityRouter.get("/stream", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -71,12 +71,20 @@ activityRouter.get("/stream", (req, res) => {
 
   res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
 
+  for (const line of listRecentLogs(40)) {
+    res.write(`event: log\ndata: ${JSON.stringify(line)}\n\n`);
+  }
+
   const unsubscribe = subscribeActivity((event) => {
     res.write(`event: activity\ndata: ${JSON.stringify(event)}\n\n`);
   });
 
   const unsubscribeClear = subscribeActivityCleared(() => {
     res.write(`event: activity_cleared\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+  });
+
+  const unsubscribeLogs = subscribeLogs((line) => {
+    res.write(`event: log\ndata: ${JSON.stringify(line)}\n\n`);
   });
 
   const heartbeat = setInterval(() => {
@@ -87,27 +95,10 @@ activityRouter.get("/stream", (req, res) => {
     clearInterval(heartbeat);
     unsubscribe();
     unsubscribeClear();
+    unsubscribeLogs();
   });
 });
 
-/**
- * @openapi
- * /api/activity/{id}:
- *   delete:
- *     summary: Delete one activity event
- *     tags: [Activity]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Deleted
- *       404:
- *         description: Not found
- */
 activityRouter.delete("/:id", (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) {

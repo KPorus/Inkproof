@@ -31,6 +31,14 @@ export type Order = {
   updated_at: string;
 };
 
+export type ServerLogLine = {
+  id: number;
+  scope: string;
+  message: string;
+  details?: Record<string, unknown>;
+  created_at: string;
+};
+
 const API_URL = "https://inkproof.onrender.com";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -79,17 +87,39 @@ export function clearActivity() {
   return request<{ cleared: number }>("/api/activity", { method: "DELETE" });
 }
 
+export function fetchOrders() {
+  return request<{ orders: Order[] }>("/api/orders");
+}
+
 export function fetchOrder(id: string) {
   return request<{ order: Order }>(`/api/orders/${id}`);
 }
 
-export function receiptUrl(orderId: string): string {
-  return `${API_URL}/api/orders/${orderId}/receipt`;
+export function retryPdf(orderId: string) {
+  return request<{ ok: boolean; orderId: string }>(`/api/orders/${orderId}/retry-pdf`, {
+    method: "POST",
+  });
+}
+
+export function fetchDemoSettings() {
+  return request<{ simulatePdfFailure: boolean }>("/api/demo/settings");
+}
+
+export function updateDemoSettings(simulatePdfFailure: boolean) {
+  return request<{ simulatePdfFailure: boolean }>("/api/demo/settings", {
+    method: "PATCH",
+    body: JSON.stringify({ simulatePdfFailure }),
+  });
+}
+
+export function receiptUrl(orderId: string, inline = false): string {
+  return `${API_URL}/api/orders/${orderId}/receipt${inline ? "?inline=1" : ""}`;
 }
 
 export function openActivityStream(
   onEvent: (event: ActivityEvent) => void,
-  onCleared?: () => void
+  onCleared?: () => void,
+  onLog?: (line: ServerLogLine) => void
 ): () => void {
   const source = new EventSource(`${API_URL}/api/activity/stream`);
   source.addEventListener("activity", (message) => {
@@ -97,11 +127,19 @@ export function openActivityStream(
       const data = JSON.parse((message as MessageEvent).data) as ActivityEvent;
       onEvent(data);
     } catch {
-      // ignore malformed frames
+      // ignore
     }
   });
   source.addEventListener("activity_cleared", () => {
     onCleared?.();
+  });
+  source.addEventListener("log", (message) => {
+    try {
+      const data = JSON.parse((message as MessageEvent).data) as ServerLogLine;
+      onLog?.(data);
+    } catch {
+      // ignore
+    }
   });
   return () => source.close();
 }

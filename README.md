@@ -7,7 +7,7 @@ Educational demo: **Stripe Checkout → webhook → EventEmitter → PDF proof-o
 | Layer | Tech |
 | --- | --- |
 | Backend | Node.js, Express, TypeScript, CORS, Stripe, PDFKit, Swagger |
-| Storage | In-memory (no database) |
+| Storage | File-backed memory (`backend/data/store.json`) |
 | Background jobs | In-process EventEmitter (`purchase.paid` → PDF worker) |
 | Client | React + Vite + TypeScript |
 | Deploy | Client → GitHub Pages; API → Render (or similar) |
@@ -35,7 +35,7 @@ pnpm dev
 API: `http://localhost:5000`  
 Swagger: `http://localhost:5000/api/docs`
 
-No Postgres / Docker database required. Orders, jobs, and activity live in memory (reset on restart).
+No Postgres required. Orders, jobs, and activity persist to `backend/data/store.json` so Render restarts keep demo history.
 
 ### 2. Stripe webhook (local)
 

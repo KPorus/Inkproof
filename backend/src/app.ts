@@ -3,6 +3,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { config } from "./config";
 import { activityRouter } from "./routes/activity";
 import { checkoutRouter } from "./routes/checkout";
+import { demoRouter } from "./routes/demo";
 import { ordersRouter } from "./routes/orders";
 import { productsRouter } from "./routes/products";
 import { webhookRouter } from "./routes/webhook";
@@ -13,12 +14,16 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: [config.clientUrl,"https://kporus.github.io", "http://localhost:5173", "http://127.0.0.1:5173"],
+      origin: [
+        config.clientUrl,
+        "https://kporus.github.io",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+      ],
       credentials: true,
     })
   );
 
-  // Stripe needs the raw body — mount webhook before JSON parser
   app.use("/api/webhook", webhookRouter);
 
   app.use(express.json());
@@ -27,7 +32,7 @@ export function createApp() {
     res.json({
       ok: true,
       service: "inkproof-backend",
-      storage: "memory",
+      storage: "file-backed-memory",
       time: new Date().toISOString(),
     });
   });
@@ -36,6 +41,7 @@ export function createApp() {
   app.use("/api/checkout", checkoutRouter);
   app.use("/api/orders", ordersRouter);
   app.use("/api/activity", activityRouter);
+  app.use("/api/demo", demoRouter);
 
   mountSwagger(app);
 

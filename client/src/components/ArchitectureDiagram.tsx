@@ -31,16 +31,17 @@ const NODES = [
   },
   {
     id: "memory",
-    label: "Memory Store",
+    label: "File Store",
     note: "orders + jobs + activity",
   },
 ] as const;
 
 type Props = {
   activeNode: string | null;
+  errorNode?: string | null;
 };
 
-export function ArchitectureDiagram({ activeNode }: Props) {
+export function ArchitectureDiagram({ activeNode, errorNode }: Props) {
   return (
     <div className="arch" role="img" aria-label="Inkproof request and event flow diagram">
       <ol className="arch-flow">
@@ -48,10 +49,11 @@ export function ArchitectureDiagram({ activeNode }: Props) {
           const lit =
             activeNode === node.id ||
             (node.id === "api" && activeNode === "stripe");
+          const errored = errorNode === node.id;
           return (
             <li
               key={node.id}
-              className={`arch-node ${lit ? "is-active" : ""}`}
+              className={`arch-node ${lit ? "is-active" : ""} ${errored ? "is-error" : ""}`}
               style={{ animationDelay: `${index * 60}ms` }}
             >
               <span className="arch-index">{index + 1}</span>
@@ -69,8 +71,8 @@ export function ArchitectureDiagram({ activeNode }: Props) {
       <aside className="arch-legend">
         <p>
           <strong>Annotation:</strong> the webhook returns <code>200</code> immediately after
-          emitting <code>purchase.paid</code>. Heavy PDF work runs on the EventEmitter listener —
-          not inside the Stripe request. State lives in memory (no database).
+          emitting <code>purchase.paid</code>. Heavy PDF work runs on the EventEmitter listener.
+          State is file-backed so Render restarts keep demo history.
         </p>
       </aside>
     </div>
