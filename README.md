@@ -75,6 +75,24 @@ Open `http://localhost:5173`, pick a product, complete Stripe **test** checkout,
 Push to `main` runs `.github/workflows/deploy-client.yml`.  
 Set repo **Settings → Pages → Source** to **GitHub Actions**.
 
+## Render keep-awake (cron)
+
+Free Render web services sleep after ~15 minutes idle.  
+[`.github/workflows/keep-render-awake.yml`](.github/workflows/keep-render-awake.yml) runs every **10 minutes**:
+
+1. Short probe of `/api/health` (5s) — if **200**, already awake → stop  
+2. If the probe fails → long request (up to 120s) to **wake** the service  
+
+Set a repository variable:
+
+**Settings → Secrets and variables → Actions → Variables**
+
+| Name | Example |
+| --- | --- |
+| `RENDER_BACKEND_URL` | `https://your-service.onrender.com` |
+
+You can also run it manually from the **Actions** tab → **Keep Render awake**.
+
 ## License
 
 MIT — for learning and demos.

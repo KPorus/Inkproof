@@ -1,0 +1,60 @@
+# Wakes the Render free-tier API if it has spun down.
+# Schedule is under Render's ~15m idle sleep window.
+# Each run: short probe first — if already up, stop; if down, long wake request.
+
+name: Keep Render awake
+
+on:
+  schedule:
+    # Every 10 minutes (UTC)
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require backend URL
+        env:
+          RENDER_BACKEND_URL: ${{ vars.RENDER_BACKEND_URL }}
+        run: |
+          if [ -z "$RENDER_BACKEND_URL" ]; then
+            echo "Set repo variable RENDER_BACKEND_URL (e.g. https://inkproof-api.onrender.com)"
+            exit 1
+          fi
+          echo "Target: $RENDER_BACKEND_URL"
+
+      - name: Probe, wake only if asleep
+        env:
+          RENDER_BACKEND_URL: ${{ vars.RENDER_BACKEND_URL }}
+        run: |
+          set +e
+          HEALTH_URL="${RENDER_BACKEND_URL%/}/api/health"
+
+          echo "Probing (5s timeout)…"
+          HTTP=$(curl -sS -o /tmp/health.json -w "%{http_code}" \
+            --connect-timeout 3 --max-time 5 \
+            "$HEALTH_URL")
+          PROBE_EXIT=$?
+
+          if [ "$PROBE_EXIT" -eq 0 ] && [ "$HTTP" = "200" ]; then
+            echo "Already awake (HTTP $HTTP) — no wake needed."
+            cat /tmp/health.json || true
+            exit 0
+          fi
+
+          echo "Service looks asleep or unreachable (probe exit=$PROBE_EXIT http=${HTTP:-none}). Waking…"
+          HTTP=$(curl -sS -o /tmp/health-wake.json -w "%{http_code}" \
+            --connect-timeout 10 --max-time 120 \
+            "$HEALTH_URL")
+          WAKE_EXIT=$?
+
+          if [ "$WAKE_EXIT" -eq 0 ] && [ "$HTTP" = "200" ]; then
+            echo "Woke successfully (HTTP $HTTP)."
+            cat /tmp/health-wake.json || true
+            exit 0
+          fi
+
+          echo "Wake failed (exit=$WAKE_EXIT http=${HTTP:-none})."
+          cat /tmp/health-wake.json || true
+          exit 1
