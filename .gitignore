@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Env
+.env
+.env.local
+backend/.env
+client/.env
+client/.env.local
+
+# Build
+backend/dist/
+client/dist/
+*.tsbuildinfo
+
+# Uploads / generated PDFs
+backend/uploads/receipts/*.pdf
+backend/uploads/receipts/*.PDF
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Coverage
+coverage/
+.nyc_output/
