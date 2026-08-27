@@ -1,7 +1,7 @@
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import type { Express } from "express";
-import { config } from "../config";
+import { config } from "./config";
 
 const options: swaggerJsdoc.Options = {
   definition: {

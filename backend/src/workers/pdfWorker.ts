@@ -5,6 +5,7 @@ import { pool } from "../db/pool";
 import { bus } from "../events/bus";
 import { recordActivity } from "../services/activity";
 import type { PurchasePaidPayload } from "../types";
+import { log } from "../utils/logger";
 
 const RECEIPTS_DIR = path.join(process.cwd(), "uploads", "receipts");
 
@@ -23,6 +24,8 @@ async function generateReceiptPdf(payload: PurchasePaidPayload, jobId: string): 
   ensureReceiptsDir();
   const filename = `receipt-${payload.orderId}.pdf`;
   const filePath = path.join(RECEIPTS_DIR, filename);
+
+  log("pdf-worker", "Writing PDF with PDFKit", { orderId: payload.orderId, filePath });
 
   await new Promise<void>((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: "A4" });
@@ -77,6 +80,12 @@ async function generateReceiptPdf(payload: PurchasePaidPayload, jobId: string): 
 }
 
 async function handlePurchasePaid(payload: PurchasePaidPayload): Promise<void> {
+  log("pdf-worker", "Background handler started for purchase.paid", {
+    orderId: payload.orderId,
+    productName: payload.productName,
+    amountCents: payload.amountCents,
+  });
+
   const jobResult = await pool.query<{ id: string }>(
     `INSERT INTO jobs (order_id, type, status)
      VALUES ($1, 'generate_pdf', 'queued')
@@ -84,6 +93,7 @@ async function handlePurchasePaid(payload: PurchasePaidPayload): Promise<void> {
     [payload.orderId]
   );
   const jobId = jobResult.rows[0].id;
+  log("pdf-worker", "Job queued", { orderId: payload.orderId, jobId });
 
   await recordActivity(
     "event_received",
@@ -130,8 +140,14 @@ async function handlePurchasePaid(payload: PurchasePaidPayload): Promise<void> {
       payload.orderId,
       { jobId, receiptPath: relativePath }
     );
+    log("pdf-worker", "PDF completed", {
+      orderId: payload.orderId,
+      jobId,
+      receiptPath: relativePath,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown PDF error";
+    log("pdf-worker", "PDF failed", { orderId: payload.orderId, jobId, error: message });
     await pool.query(
       `UPDATE jobs SET status = 'failed', error = $2, updated_at = NOW() WHERE id = $1`,
       [jobId, message]
@@ -149,7 +165,9 @@ async function handlePurchasePaid(payload: PurchasePaidPayload): Promise<void> {
 
 export function registerPdfWorker(): void {
   ensureReceiptsDir();
+  log("pdf-worker", "Registering listener for purchase.paid");
   bus.on("purchase.paid", (payload) => {
+    log("pdf-worker", "EventEmitter delivered purchase.paid", { orderId: payload.orderId });
     void handlePurchasePaid(payload);
   });
 }
