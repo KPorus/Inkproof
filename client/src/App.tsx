@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  clearActivity,
   createCheckout,
+  deleteActivity,
   fetchActivity,
   fetchOrder,
   fetchProducts,
@@ -22,7 +24,7 @@ const STAGE_TO_NODE: Record<string, string> = {
   event_emitted: "bus",
   event_received: "bus",
   pdf_started: "pdf",
-  pdf_completed: "db",
+  pdf_completed: "memory",
   pdf_failed: "pdf",
 };
 
@@ -39,6 +41,7 @@ export default function App() {
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const [loadingBuy, setLoadingBuy] = useState(false);
+  const [activityBusy, setActivityBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
 
@@ -64,12 +67,15 @@ export default function App() {
     const stored = localStorage.getItem("inkproof_order_id");
     if (stored) setActiveOrderId(stored);
 
-    const close = openActivityStream((event) => {
-      setEvents((prev) => {
-        if (prev.some((e) => e.id === event.id)) return prev;
-        return [...prev, event].slice(-80);
-      });
-    });
+    const close = openActivityStream(
+      (event) => {
+        setEvents((prev) => {
+          if (prev.some((e) => e.id === event.id)) return prev;
+          return [...prev, event].slice(-80);
+        });
+      },
+      () => setEvents([])
+    );
     return close;
   }, []);
 
@@ -116,6 +122,32 @@ export default function App() {
     }
   }
 
+  async function handleRemoveActivity(id: number) {
+    setActivityBusy(true);
+    setError(null);
+    try {
+      await deleteActivity(id);
+      setEvents((prev) => prev.filter((e) => e.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove activity");
+    } finally {
+      setActivityBusy(false);
+    }
+  }
+
+  async function handleClearActivity() {
+    setActivityBusy(true);
+    setError(null);
+    try {
+      await clearActivity();
+      setEvents([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear activity");
+    } finally {
+      setActivityBusy(false);
+    }
+  }
+
   return (
     <div className="page">
       <div className="atmosphere" aria-hidden="true" />
@@ -151,7 +183,7 @@ export default function App() {
       <section className="section" id="buy" aria-labelledby="buy-title">
         <div className="section-head">
           <h2 id="buy-title">Buy a demo product</h2>
-          <p>Creates a real Stripe Checkout Session (test mode) and a pending order row.</p>
+          <p>Creates a real Stripe Checkout Session (test mode) and a pending in-memory order.</p>
         </div>
         <ProductPicker products={products} loading={loadingBuy} onBuy={handleBuy} />
       </section>
@@ -160,9 +192,14 @@ export default function App() {
         <div className="section" aria-labelledby="timeline-title">
           <div className="section-head">
             <h2 id="timeline-title">Activity timeline</h2>
-            <p>Each caption maps to a real server-side step.</p>
+            <p>Each caption maps to a real server-side step. Remove one event or clear all.</p>
           </div>
-          <ActivityTimeline events={events} />
+          <ActivityTimeline
+            events={events}
+            busy={activityBusy}
+            onRemove={handleRemoveActivity}
+            onClearAll={handleClearActivity}
+          />
         </div>
 
         <div className="section receipt-panel" aria-labelledby="receipt-title">

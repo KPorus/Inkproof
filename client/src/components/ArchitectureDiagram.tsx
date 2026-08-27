@@ -30,8 +30,8 @@ const NODES = [
     note: "PDFKit receipt",
   },
   {
-    id: "db",
-    label: "PostgreSQL",
+    id: "memory",
+    label: "Memory Store",
     note: "orders + jobs + activity",
   },
 ] as const;
@@ -49,26 +49,28 @@ export function ArchitectureDiagram({ activeNode }: Props) {
             activeNode === node.id ||
             (node.id === "api" && activeNode === "stripe");
           return (
-          <li
-            key={node.id}
-            className={`arch-node ${lit ? "is-active" : ""}`}
-            style={{ animationDelay: `${index * 60}ms` }}
-          >
-            <span className="arch-index">{index + 1}</span>
-            <div>
-              <strong>{node.label}</strong>
-              <span className="arch-note">{node.note}</span>
-            </div>
-            {index < NODES.length - 1 ? <span className="arch-arrow" aria-hidden="true" /> : null}
-          </li>
+            <li
+              key={node.id}
+              className={`arch-node ${lit ? "is-active" : ""}`}
+              style={{ animationDelay: `${index * 60}ms` }}
+            >
+              <span className="arch-index">{index + 1}</span>
+              <div>
+                <strong>{node.label}</strong>
+                <span className="arch-note">{node.note}</span>
+              </div>
+              {index < NODES.length - 1 ? (
+                <span className="arch-arrow" aria-hidden="true" />
+              ) : null}
+            </li>
           );
         })}
       </ol>
       <aside className="arch-legend">
         <p>
-          <strong>Annotation:</strong> the webhook returns <code>200</code> immediately after emitting{" "}
-          <code>purchase.paid</code>. Heavy PDF work runs on the EventEmitter listener — not inside
-          the Stripe request.
+          <strong>Annotation:</strong> the webhook returns <code>200</code> immediately after
+          emitting <code>purchase.paid</code>. Heavy PDF work runs on the EventEmitter listener —
+          not inside the Stripe request. State lives in memory (no database).
         </p>
       </aside>
     </div>

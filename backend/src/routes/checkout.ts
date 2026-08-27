@@ -1,9 +1,8 @@
 import { Router } from "express";
 import Stripe from "stripe";
 import { config } from "../config";
-import { pool } from "../db/pool";
 import { recordActivity } from "../services/activity";
-import type { Product } from "../types";
+import { store } from "../store/memory";
 
 export const checkoutRouter = Router();
 
@@ -50,29 +49,23 @@ checkoutRouter.post("/", async (req, res, next) => {
       return;
     }
 
-    const productResult = await pool.query<Product>(
-      `SELECT id, slug, name, description, amount_cents, currency
-       FROM products WHERE id = $1`,
-      [productId]
-    );
-    const product = productResult.rows[0];
+    const product = store.getProduct(productId);
     if (!product) {
       res.status(404).json({ error: "Product not found" });
       return;
     }
 
-    const orderResult = await pool.query<{ id: string }>(
-      `INSERT INTO orders (product_id, customer_email, amount_cents, currency, status)
-       VALUES ($1, $2, $3, $4, 'pending')
-       RETURNING id`,
-      [product.id, customerEmail ?? null, product.amount_cents, product.currency]
-    );
-    const orderId = orderResult.rows[0].id;
+    const order = store.createOrder({
+      productId: product.id,
+      customerEmail: customerEmail ?? null,
+      amountCents: product.amount_cents,
+      currency: product.currency,
+    });
 
     await recordActivity(
       "checkout_created",
       `Checkout started for ${product.name}`,
-      orderId,
+      order.id,
       { productId: product.id, amountCents: product.amount_cents }
     );
 
@@ -96,26 +89,23 @@ checkoutRouter.post("/", async (req, res, next) => {
         },
       ],
       metadata: {
-        orderId,
+        orderId: order.id,
         productId: product.id,
         productName: product.name,
       },
     });
 
-    await pool.query(
-      `UPDATE orders SET stripe_session_id = $2, updated_at = NOW() WHERE id = $1`,
-      [orderId, session.id]
-    );
+    store.updateOrder(order.id, { stripe_session_id: session.id });
 
     await recordActivity(
       "stripe_session_created",
       "Stripe Checkout Session created",
-      orderId,
+      order.id,
       { sessionId: session.id }
     );
 
     res.json({
-      orderId,
+      orderId: order.id,
       sessionId: session.id,
       url: session.url,
     });

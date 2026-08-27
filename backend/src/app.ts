@@ -27,6 +27,7 @@ export function createApp() {
     res.json({
       ok: true,
       service: "inkproof-backend",
+      storage: "memory",
       time: new Date().toISOString(),
     });
   });

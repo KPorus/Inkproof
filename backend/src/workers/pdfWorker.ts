@@ -1,9 +1,9 @@
 import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
-import { pool } from "../db/pool";
 import { bus } from "../events/bus";
 import { recordActivity } from "../services/activity";
+import { store } from "../store/memory";
 import type { PurchasePaidPayload } from "../types";
 import { log } from "../utils/logger";
 
@@ -86,79 +86,59 @@ async function handlePurchasePaid(payload: PurchasePaidPayload): Promise<void> {
     amountCents: payload.amountCents,
   });
 
-  const jobResult = await pool.query<{ id: string }>(
-    `INSERT INTO jobs (order_id, type, status)
-     VALUES ($1, 'generate_pdf', 'queued')
-     RETURNING id`,
-    [payload.orderId]
-  );
-  const jobId = jobResult.rows[0].id;
-  log("pdf-worker", "Job queued", { orderId: payload.orderId, jobId });
+  const job = store.createJob(payload.orderId);
+  log("pdf-worker", "Job queued", { orderId: payload.orderId, jobId: job.id });
 
   await recordActivity(
     "event_received",
     "purchase.paid received by PDF worker",
     payload.orderId,
-    { jobId, event: "purchase.paid" }
+    { jobId: job.id, event: "purchase.paid" }
   );
 
-  await pool.query(
-    `UPDATE jobs SET status = 'running', updated_at = NOW() WHERE id = $1`,
-    [jobId]
-  );
-  bus.emit("pdf.started", { orderId: payload.orderId, jobId });
+  store.updateJob(job.id, { status: "running" });
+  bus.emit("pdf.started", { orderId: payload.orderId, jobId: job.id });
   await recordActivity(
     "pdf_started",
     "PDF generation started in background",
     payload.orderId,
-    { jobId }
+    { jobId: job.id }
   );
 
   try {
-    const receiptPath = await generateReceiptPdf(payload, jobId);
+    const receiptPath = await generateReceiptPdf(payload, job.id);
     const relativePath = path.relative(process.cwd(), receiptPath);
 
-    await pool.query(
-      `UPDATE orders
-       SET status = 'pdf_ready', receipt_path = $2, updated_at = NOW()
-       WHERE id = $1`,
-      [payload.orderId, relativePath]
-    );
-    await pool.query(
-      `UPDATE jobs SET status = 'completed', updated_at = NOW() WHERE id = $1`,
-      [jobId]
-    );
+    store.updateOrder(payload.orderId, {
+      status: "pdf_ready",
+      receipt_path: relativePath,
+    });
+    store.updateJob(job.id, { status: "completed" });
 
     bus.emit("pdf.completed", {
       orderId: payload.orderId,
-      jobId,
+      jobId: job.id,
       receiptPath: relativePath,
     });
     await recordActivity(
       "pdf_completed",
       "Proof-of-purchase PDF ready for download",
       payload.orderId,
-      { jobId, receiptPath: relativePath }
+      { jobId: job.id, receiptPath: relativePath }
     );
     log("pdf-worker", "PDF completed", {
       orderId: payload.orderId,
-      jobId,
+      jobId: job.id,
       receiptPath: relativePath,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown PDF error";
-    log("pdf-worker", "PDF failed", { orderId: payload.orderId, jobId, error: message });
-    await pool.query(
-      `UPDATE jobs SET status = 'failed', error = $2, updated_at = NOW() WHERE id = $1`,
-      [jobId, message]
-    );
-    await pool.query(
-      `UPDATE orders SET status = 'failed', updated_at = NOW() WHERE id = $1`,
-      [payload.orderId]
-    );
-    bus.emit("pdf.failed", { orderId: payload.orderId, jobId, error: message });
+    log("pdf-worker", "PDF failed", { orderId: payload.orderId, jobId: job.id, error: message });
+    store.updateJob(job.id, { status: "failed", error: message });
+    store.updateOrder(payload.orderId, { status: "failed" });
+    bus.emit("pdf.failed", { orderId: payload.orderId, jobId: job.id, error: message });
     await recordActivity("pdf_failed", `PDF generation failed: ${message}`, payload.orderId, {
-      jobId,
+      jobId: job.id,
     });
   }
 }

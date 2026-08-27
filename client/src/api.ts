@@ -31,7 +31,7 @@ export type Order = {
   updated_at: string;
 };
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -44,6 +44,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? response.statusText);
+  }
+  if (response.status === 204) {
+    return undefined as T;
   }
   return response.json() as Promise<T>;
 }
@@ -68,6 +71,14 @@ export function fetchActivity(afterId?: number) {
   return request<{ events: ActivityEvent[] }>(`/api/activity${query}`);
 }
 
+export function deleteActivity(id: number) {
+  return request<{ deleted: number }>(`/api/activity/${id}`, { method: "DELETE" });
+}
+
+export function clearActivity() {
+  return request<{ cleared: number }>("/api/activity", { method: "DELETE" });
+}
+
 export function fetchOrder(id: string) {
   return request<{ order: Order }>(`/api/orders/${id}`);
 }
@@ -76,7 +87,10 @@ export function receiptUrl(orderId: string): string {
   return `${API_URL}/api/orders/${orderId}/receipt`;
 }
 
-export function openActivityStream(onEvent: (event: ActivityEvent) => void): () => void {
+export function openActivityStream(
+  onEvent: (event: ActivityEvent) => void,
+  onCleared?: () => void
+): () => void {
   const source = new EventSource(`${API_URL}/api/activity/stream`);
   source.addEventListener("activity", (message) => {
     try {
@@ -85,6 +99,9 @@ export function openActivityStream(onEvent: (event: ActivityEvent) => void): () 
     } catch {
       // ignore malformed frames
     }
+  });
+  source.addEventListener("activity_cleared", () => {
+    onCleared?.();
   });
   return () => source.close();
 }

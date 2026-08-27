@@ -1,5 +1,11 @@
 import { Router } from "express";
-import { listActivity, subscribeActivity } from "../services/activity";
+import {
+  clearActivity,
+  deleteActivity,
+  listActivity,
+  subscribeActivity,
+  subscribeActivityCleared,
+} from "../services/activity";
 
 export const activityRouter = Router();
 
@@ -21,6 +27,12 @@ export const activityRouter = Router();
  *     responses:
  *       200:
  *         description: Activity feed
+ *   delete:
+ *     summary: Clear all activity events
+ *     tags: [Activity]
+ *     responses:
+ *       200:
+ *         description: Cleared count
  */
 activityRouter.get("/", async (req, res, next) => {
   try {
@@ -34,6 +46,11 @@ activityRouter.get("/", async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+activityRouter.delete("/", (_req, res) => {
+  const removed = clearActivity();
+  res.json({ cleared: removed });
 });
 
 /**
@@ -58,6 +75,10 @@ activityRouter.get("/stream", (req, res) => {
     res.write(`event: activity\ndata: ${JSON.stringify(event)}\n\n`);
   });
 
+  const unsubscribeClear = subscribeActivityCleared(() => {
+    res.write(`event: activity_cleared\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+  });
+
   const heartbeat = setInterval(() => {
     res.write(`: heartbeat\n\n`);
   }, 15000);
@@ -65,5 +86,38 @@ activityRouter.get("/stream", (req, res) => {
   req.on("close", () => {
     clearInterval(heartbeat);
     unsubscribe();
+    unsubscribeClear();
   });
+});
+
+/**
+ * @openapi
+ * /api/activity/{id}:
+ *   delete:
+ *     summary: Delete one activity event
+ *     tags: [Activity]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Deleted
+ *       404:
+ *         description: Not found
+ */
+activityRouter.delete("/:id", (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid activity id" });
+    return;
+  }
+  const ok = deleteActivity(id);
+  if (!ok) {
+    res.status(404).json({ error: "Activity not found" });
+    return;
+  }
+  res.json({ deleted: id });
 });

@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { pool } from "../db/pool";
-import type { Product } from "../types";
+import { store } from "../store/memory";
 
 export const productsRouter = Router();
 
@@ -14,15 +13,6 @@ export const productsRouter = Router();
  *       200:
  *         description: Product catalog
  */
-productsRouter.get("/", async (_req, res, next) => {
-  try {
-    const result = await pool.query<Product>(
-      `SELECT id, slug, name, description, amount_cents, currency, created_at
-       FROM products
-       ORDER BY amount_cents ASC`
-    );
-    res.json({ products: result.rows });
-  } catch (error) {
-    next(error);
-  }
+productsRouter.get("/", (_req, res) => {
+  res.json({ products: store.listProducts() });
 });

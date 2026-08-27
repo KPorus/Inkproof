@@ -1,9 +1,9 @@
 import { Router, raw } from "express";
 import Stripe from "stripe";
 import { config } from "../config";
-import { pool } from "../db/pool";
 import { bus } from "../events/bus";
 import { recordActivity } from "../services/activity";
+import { store } from "../store/memory";
 import { log } from "../utils/logger";
 
 export const webhookRouter = Router();
@@ -70,29 +70,17 @@ webhookRouter.post("/", raw({ type: "application/json" }), async (req, res) => {
     });
 
     if (orderId) {
-      const orderResult = await pool.query<{
-        id: string;
-        amount_cents: number;
-        currency: string;
-        status: string;
-      }>(
-        `SELECT id, amount_cents, currency, status FROM orders WHERE id = $1`,
-        [orderId]
-      );
-      const order = orderResult.rows[0];
+      const order = store.getOrder(orderId);
 
       if (order && order.status === "pending") {
-        await pool.query(
-          `UPDATE orders
-           SET status = 'paid',
-               customer_email = COALESCE($2, customer_email),
-               stripe_session_id = COALESCE(stripe_session_id, $3),
-               updated_at = NOW()
-           WHERE id = $1`,
-          [orderId, session.customer_details?.email ?? session.customer_email, session.id]
-        );
+        store.updateOrder(orderId, {
+          status: "paid",
+          customer_email:
+            session.customer_details?.email ?? session.customer_email ?? order.customer_email,
+          stripe_session_id: session.id,
+        });
 
-        log("webhook", "Order marked paid in database", { orderId, status: "paid" });
+        log("webhook", "Order marked paid in memory store", { orderId, status: "paid" });
 
         await recordActivity(
           "webhook_received",
