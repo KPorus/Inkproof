@@ -39,13 +39,13 @@ pnpm install
 pnpm dev
 ```
 
-API: `http://localhost:4000`  
-Swagger: `http://localhost:4000/api/docs`
+API: `http://localhost:5000`  
+Swagger: `http://localhost:5000/api/docs`
 
 ### 3. Stripe webhook (local)
 
 ```bash
-stripe listen --forward-to localhost:4000/api/webhook
+stripe listen --forward-to localhost:5000/api/webhook
 ```
 
 Copy the printed `whsec_…` into `backend/.env` as `STRIPE_WEBHOOK_SECRET`.
